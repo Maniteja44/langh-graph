@@ -32,8 +32,11 @@ def get_llm(model_name: str = None, provider: str = None):
         return ChatOpenAI(model=model, temperature=0.1, max_tokens=4000)
 
     elif provider == "google":
-        model = model_name or "gemini-2.5-flash"
-        return ChatGoogleGenerativeAI(model=model, temperature=0.1, max_tokens=4000)
+        # Gemini models need "models/" prefix
+        model_name = model_name or "gemini-3.5-flash"
+        if not model_name.startswith("models/"):
+            model_name = f"models/{model_name}"
+        return ChatGoogleGenerativeAI(model=model_name, temperature=0.1, max_tokens=4000)
 
     elif provider == "groq":
         from langchain_groq import ChatGroq
@@ -137,6 +140,13 @@ class ResearchDecomposer:
         response = self.llm.invoke(messages)
         content = response.content if hasattr(response, 'content') else str(response)
 
+        # Handle different response formats
+        if isinstance(content, list):
+            # Gemini returns a list of content parts
+            content = "".join(part.get('text', '') if isinstance(part, dict) else str(part) for part in content)
+        elif not isinstance(content, str):
+            content = str(content)
+
         try:
             data = json.loads(content)
             steps = []
@@ -190,6 +200,12 @@ class ReportSynthesizer:
         result = self.llm.invoke(messages)
         output = result.content if hasattr(result, 'content') else str(result)
 
+        # Handle different response formats
+        if isinstance(output, list):
+            output = "".join(part.get('text', '') if isinstance(part, dict) else str(part) for part in output)
+        elif not isinstance(output, str):
+            output = str(output)
+
         try:
             data = json.loads(output)
             sections = []
@@ -235,6 +251,12 @@ class ReportCritic:
         messages = [HumanMessage(content=content)]
         result = self.llm.invoke(messages)
         output = result.content if hasattr(result, 'content') else str(result)
+
+        # Handle different response formats
+        if isinstance(output, list):
+            output = "".join(part.get('text', '') if isinstance(part, dict) else str(part) for part in output)
+        elif not isinstance(output, str):
+            output = str(output)
 
         try:
             data = json.loads(output)

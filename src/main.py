@@ -13,13 +13,11 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from langgraph.graph import Graph
-
 from .State import ResearchState, ResearchReport
 from .graph import create_research_graph
 
 
-def get_graph() -> Graph:
+def get_graph():
     """Get or create the research graph."""
     return create_research_graph()
 

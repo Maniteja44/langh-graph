@@ -1,0 +1,9 @@
+[build]
+builder = "nixpacks"
+runtime = "python3"
+buildCommand = "pip install -r requirements.txt"
+startCommand = "gunicorn -w 2 -b 0.0.0.0:${PORT:-8080} api_server:app"
+
+[env]
+LLM_PROVIDER = "google"
+LLM_MODEL = "gemini-3.5-flash"

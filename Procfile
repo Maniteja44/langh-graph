@@ -1,1 +1,1 @@
-web: gunicorn -w 2 -b 0.0.0.0:${PORT:-8080} api_server:app
+web: uvicorn api_server:app --host 0.0.0.0 --port ${PORT:-8080} --workers 2

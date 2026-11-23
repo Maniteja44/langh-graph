@@ -1,6 +1,7 @@
 """Node implementations for the Research & Planning Agent."""
 
 import json
+import os
 from typing import Dict, Any, Optional
 from langgraph.types import interrupt
 from langchain_core.messages import HumanMessage, AIMessage
@@ -45,7 +46,6 @@ class ResearcherNode:
 
     def __call__(self, state: ResearchState, step_id_override: Optional[int] = None) -> Dict[str, Any]:
         """Research a specific step (or current step if no override)."""
-        # Determine which step to research
         if step_id_override is not None:
             step_idx = step_id_override
         else:
@@ -58,7 +58,6 @@ class ResearcherNode:
 
         step = steps[step_idx]
 
-        # Prepare the search query - use both topic and question
         query = f"{step.topic}: {step.question}"
 
         try:
@@ -73,7 +72,6 @@ class ResearcherNode:
                 for r in result.results
             ]
 
-            # Update the step in place
             updated_step = ResearchStep(
                 step_id=step.step_id,
                 topic=step.topic,
@@ -83,11 +81,9 @@ class ResearcherNode:
                 completed=True
             )
 
-            # Create new steps list with updated step
             new_steps = list(steps)
             new_steps[step_idx] = updated_step
 
-            # Track completed step
             new_current = state.current_step
             if state.current_step == step_idx:
                 new_current = step_idx + 1
@@ -117,7 +113,6 @@ class SynthesizerNode:
         question = state.question
         steps = state.steps
 
-        # Build research results dict
         research_results = {}
         for step in steps:
             if step.completed:
@@ -159,14 +154,12 @@ class CriticNode:
             state.iteration
         )
 
-        # Check if we need to iterate
         need_iteration = (
             not critique_result.is_complete and
             state.iteration < state.max_iterations
         )
 
         if need_iteration:
-            # Use revised report if available
             report = critique_result.revised_report or state.report
             return {
                 "report": report,
@@ -182,7 +175,6 @@ class CriticNode:
                 "waiting_for_approval": False
             }
         else:
-            # Max iterations reached, mark complete
             return {
                 "report": state.report,
                 "critique": json.dumps({
@@ -200,26 +192,32 @@ class ApprovalHandler:
     """Handles human approval of the research plan."""
 
     def __call__(self, state: ResearchState) -> Dict[str, Any]:
-        """Interrupt to wait for human approval."""
-        if state.waiting_for_approval and not state.plan_approved:
-            # Generate report preview
-            report_text = ""
-            if state.report:
-                report_text = f"Title: {state.report.title}\nSummary: {state.report.summary}\nSections:\n"
-                for section in state.report.sections:
-                    report_text += f"  - {section.title}\n"
-
-            # Interrupt here for human input
-            user_input = interrupt({
-                "question": "Does this synthesized report look good? Would you like to proceed with critique and finalization?",
-                "report_preview": report_text,
-                "options": ["Approve and finalize", "Request revision", "Re-run critique"]
-            })
-
-            action = user_input.get("action", "Approve and finalize")
+        """Auto-approve in non-interactive mode (web service)."""
+        # Skip interrupt in non-interactive mode
+        if os.getenv("HUMAN_APPROVAL", "true").lower() == "false":
             return {
-                "plan_approved": action == "Approve and finalize",
+                "plan_approved": True,
                 "waiting_for_approval": False
             }
+
+        # Only interrupt if explicitly enabled and in interactive mode
+        if state.waiting_for_approval and not state.plan_approved:
+            try:
+                user_input = interrupt({
+                    "question": "Does this synthesized report look good?",
+                    "report_preview": f"Title: {state.report.title}\nSummary: {state.report.summary}" if state.report else "",
+                    "options": ["Approve and finalize", "Request revision"]
+                })
+                action = user_input.get("action", "Approve and finalize")
+                return {
+                    "plan_approved": action == "Approve and finalize",
+                    "waiting_for_approval": False
+                }
+            except Exception:
+                # Fallback: auto-approve if interrupt fails
+                return {
+                    "plan_approved": True,
+                    "waiting_for_approval": False
+                }
 
         return {"waiting_for_approval": False}

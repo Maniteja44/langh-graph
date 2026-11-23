@@ -231,17 +231,31 @@ class ReportSynthesizer:
             data = json.loads(output)
             sections = []
             for s in data.get("sections", []):
+                # Handle citations that might be strings or dicts
+                section_citations = []
+                for c in s.get("citations", []):
+                    if isinstance(c, str):
+                        section_citations.append(c)
+                    elif isinstance(c, dict):
+                        section_citations.append(c.get("url", str(c)))
                 sections.append(Section(
                     title=s.get("title", ""),
                     content=s.get("content", ""),
-                    citations=s.get("citations", [])
+                    citations=section_citations
                 ))
+            # Handle top-level citations that might be strings or dicts
+            citations = []
+            for c in data.get("citations", []):
+                if isinstance(c, str):
+                    citations.append({"title": c, "url": c})
+                elif isinstance(c, dict):
+                    citations.append({"title": c.get("title", c.get("url", "")), "url": c.get("url", "")})
             return ResearchReport(
                 title=data.get("title", "Research Report"),
                 summary=data.get("summary", ""),
                 sections=sections,
                 recommendations=data.get("recommendations", []),
-                citations=data.get("citations", [])
+                citations=citations
             )
         except json.JSONDecodeError:
             return ResearchReport(

@@ -147,6 +147,16 @@ class ResearchDecomposer:
         elif not isinstance(content, str):
             content = str(content)
 
+        # Strip markdown code blocks
+        content = content.strip()
+        if content.startswith("```"):
+            lines = content.split('\n')
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            content = '\n'.join(lines)
+
         try:
             data = json.loads(content)
             steps = []
@@ -206,6 +216,17 @@ class ReportSynthesizer:
         elif not isinstance(output, str):
             output = str(output)
 
+        # Strip markdown code blocks
+        output = output.strip()
+        if output.startswith("```"):
+            # Remove ```json or ``` at start
+            lines = output.split('\n')
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            output = '\n'.join(lines)
+
         try:
             data = json.loads(output)
             sections = []
@@ -257,6 +278,16 @@ class ReportCritic:
             output = "".join(part.get('text', '') if isinstance(part, dict) else str(part) for part in output)
         elif not isinstance(output, str):
             output = str(output)
+
+        # Strip markdown code blocks
+        output = output.strip()
+        if output.startswith("```"):
+            lines = output.split('\n')
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            output = '\n'.join(lines)
 
         try:
             data = json.loads(output)
